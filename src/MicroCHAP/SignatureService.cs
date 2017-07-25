@@ -29,7 +29,7 @@ namespace MicroCHAP
 			factors.Add(ProcessUrl(url));
 
 			var signature = string.Join("|", factors);
-			using (SHA512 sha = new SHA512Managed())
+			using (SHA512 sha = SHA512.Create())
 			{
 				var hash = sha.ComputeHash(Encoding.UTF8.GetBytes(signature));
 				return Convert.ToBase64String(hash);

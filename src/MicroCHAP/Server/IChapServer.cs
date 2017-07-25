@@ -1,5 +1,9 @@
 using System;
+#if NET462
 using System.Web;
+#else
+using Microsoft.AspNetCore.Http;
+#endif
 
 namespace MicroCHAP.Server
 {
@@ -10,7 +14,12 @@ namespace MicroCHAP.Server
 	{
 		string GetChallengeToken();
 		bool ValidateToken(string challenge, string response, string url, params SignatureFactor[] additionalFactors);
-		bool ValidateRequest(HttpRequestBase request);
+#if NET462
+        bool ValidateRequest(HttpRequestBase request);
 		bool ValidateRequest(HttpRequestBase request, Func<HttpRequestBase, SignatureFactor[]> factorParser);
-	}
+#else
+        bool ValidateRequest(HttpRequest request);
+		bool ValidateRequest(HttpRequest request, Func<HttpRequest, SignatureFactor[]> factorParser);
+#endif
+    }
 }
