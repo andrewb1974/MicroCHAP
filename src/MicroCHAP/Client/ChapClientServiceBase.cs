@@ -1,4 +1,8 @@
 ﻿using System.Net;
+#if !NET462
+using System.Net.Http;
+using System.Threading.Tasks;
+#endif
 
 namespace MicroCHAP.Client
 {
@@ -24,7 +28,8 @@ namespace MicroCHAP.Client
 			return _remoteBaseUrl + relativeUrl;
 		}
 
-		protected virtual WebClient CreateAuthenticatedWebClient(string url, params SignatureFactor[] additionalFactors)
+#if NET462
+        protected virtual WebClient CreateAuthenticatedWebClient(string url, params SignatureFactor[] additionalFactors)
 		{
 			var challenge = GetChallenge();
 			var client = new WebClient();
@@ -35,10 +40,34 @@ namespace MicroCHAP.Client
 			return client;
 		}
 
-		protected virtual string GetChallenge()
+        protected virtual string GetChallenge()
+        {
+            var client = new WebClient();
+            return client.DownloadString(_remoteBaseUrl + _challengeUrl);
+        }
+#else
+        protected virtual HttpClient CreateAuthenticatedWebClient(string url, params SignatureFactor[] additionalFactors)
 		{
-			var client = new WebClient();
-			return client.DownloadString(_remoteBaseUrl + _challengeUrl);
+			var challenge = GetChallenge();
+			var client = new HttpClient();
+
+			client.DefaultRequestHeaders.Add("X-MC-MAC", _responseService.CreateSignature(challenge, url, additionalFactors).SignatureHash);
+			client.DefaultRequestHeaders.Add("X-MC-Nonce", challenge);
+
+			return client;
 		}
-	}
+
+        protected virtual string GetChallenge()
+		{
+			var client = new HttpClient();
+
+            Task<string> task = client.GetStringAsync(_remoteBaseUrl + _challengeUrl);
+
+            task.Wait();
+
+            return task.Result;
+		}
+#endif
+
+    }
 }

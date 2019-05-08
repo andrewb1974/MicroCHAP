@@ -1,5 +1,10 @@
 ﻿using System;
+#if NET462
+using System.Net;
 using System.Web;
+#else
+using Microsoft.AspNetCore.Http;
+#endif
 
 namespace MicroCHAP.Server
 {
@@ -29,7 +34,8 @@ namespace MicroCHAP.Server
 			return token;
 		}
 
-		public bool ValidateRequest(HttpRequestBase request)
+#if NET462
+        public bool ValidateRequest(HttpRequestBase request)
 		{
 			return ValidateRequest(request, (IChapServerLogger)null);
 		}
@@ -62,8 +68,62 @@ namespace MicroCHAP.Server
 
 			return ValidateToken(challenge, authorize, request.Url.AbsoluteUri, logger, factors);
 		}
+#else
+        public bool ValidateRequest(HttpRequest request)
+		{
+			return ValidateRequest(request, (IChapServerLogger)null);
+		}
 
-		public virtual bool ValidateToken(string challenge, string response, string url, params SignatureFactor[] additionalFactors)
+		public bool ValidateRequest(HttpRequest request, IChapServerLogger logger)
+		{
+			return ValidateRequest(request, null, logger);
+		}
+
+		public virtual bool ValidateRequest(HttpRequest request, Func<HttpRequest, SignatureFactor[]> factorParser)
+		{
+			return ValidateRequest(request, factorParser, null);
+		}
+
+		public virtual bool ValidateRequest(HttpRequest request, Func<HttpRequest, SignatureFactor[]> factorParser, IChapServerLogger logger)
+		{
+			// fallback headers are for compatibility with MicroCHAP 1.0 client implementations
+			// See https://github.com/kamsar/MicroCHAP/issues/1 for why the change to different headers
+            string authorize = null;
+
+            if (request.Headers["X-MC-MAC"].Count == 1)
+            {
+                authorize = request.Headers["X-MC-MAC"];
+            }
+            else if (request.Headers["Authorization"].Count == 1)
+            {
+                authorize = request.Headers["Authorization"];
+            }
+
+            string challenge = null;
+
+            if (request.Headers["X-MC-Nonce"].Count == 1)
+            {
+                challenge = request.Headers["X-MC-Nonce"];
+            }
+            else if (request.Headers["X-Nonce"].Count == 1)
+            {
+                challenge = request.Headers["X-Nonce"];
+            }
+
+			if (authorize == null || challenge == null)
+			{
+				logger?.RejectedDueToMissingHttpHeaders();
+				return false;
+			}
+
+			SignatureFactor[] factors = null;
+			if (factorParser != null) factors = factorParser(request);
+
+			return ValidateToken(challenge, authorize, request.Path, logger, factors);
+		}
+#endif
+
+        public virtual bool ValidateToken(string challenge, string response, string url, params SignatureFactor[] additionalFactors)
 		{
 			return ValidateToken(challenge, response, url, null, additionalFactors);
 		}
