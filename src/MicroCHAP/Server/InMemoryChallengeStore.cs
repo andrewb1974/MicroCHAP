@@ -51,7 +51,7 @@ namespace MicroCHAP.Server
 				if (DateTime.UtcNow > challenge.Value)
 				{
 					bool removed = _activeChallenges.TryRemove(challenge.Key, out temp);
-					if(removed) _logger.ChallengeExpired(challenge.Key);
+					if(removed) _logger?.ChallengeExpired(challenge.Key);
 				}
 			}
 		}
